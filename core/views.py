@@ -12,7 +12,8 @@ from django.utils import timezone
 
 from .models import (
     Profile, Case, CaseImage, SightingReport, DetectiveRequest,
-    CaseAssignment, InvestigationUpdate, DetectiveAchievement, Feedback, Blog
+    CaseAssignment, InvestigationUpdate, DetectiveAchievement, Feedback, Blog,
+    CASE_TYPE_CHOICES, CASE_STATUS_CHOICES, DETECTIVE_STATUS_CHOICES
 )
 from .ai_engine import extract_image_embedding, search_similar_images, get_model_status
 
@@ -51,7 +52,7 @@ def validate_case_data(post_data):
     cleaned_data['description'] = description
     
     case_type = post_data.get('case_type', '')
-    valid_types = [choice[0] for choice in Case.CASE_TYPE_CHOICES]
+    valid_types = [choice[0] for choice in CASE_TYPE_CHOICES]
     if case_type not in valid_types:
         errors.append("Invalid case type.")
     cleaned_data['case_type'] = case_type
@@ -169,8 +170,8 @@ def case_list(request):
     
     context = {
         'cases': cases,
-        'case_types': Case.CASE_TYPE_CHOICES,
-        'statuses': Case.STATUS_CHOICES,
+        'case_types': CASE_TYPE_CHOICES,
+        'statuses': CASE_STATUS_CHOICES,
         'filters': {
             'type': case_type,
             'status': status,
