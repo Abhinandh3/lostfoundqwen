@@ -29,7 +29,6 @@
                 <li><a href="{% url 'core:home' %}">Home</a></li>
                 <li><a href="{% url 'core:case_list' %}">Cases</a></li>
                 <li><a href="{% url 'core:ai_search' %}">AI Search</a></li>
-                <li><a href="{% url 'core:map_view' %}">Map</a></li>
                 {% if user.is_authenticated %}
                     {% if user.profile.user_type == 'detective' %}
                         <li><a href="{% url 'core:detective_dashboard' %}">Detective Dashboard</a></li>
@@ -80,7 +79,6 @@
                 <a href="{% url 'core:home' %}">Home</a>
                 <a href="{% url 'core:case_list' %}">Browse Cases</a>
                 <a href="{% url 'core:ai_search' %}">AI Search</a>
-                <a href="{% url 'core:map_view' %}">Map View</a>
             </div>
             <div class="footer-section">
                 <h4>Account</h4>
