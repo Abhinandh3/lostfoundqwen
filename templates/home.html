@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Home - LOSTFOUND{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="hero-content glass-card">
+            <h1 class="display-1">Lost & Found Reimagined</h1>
+            <p class="lead">AI-powered image recognition to reunite lost items and pets with their owners.</p>
+            <div class="hero-actions">
+                <a href="{% url 'create_case' %}" class="btn btn-primary btn-lg">Report Lost Item</a>
+                <a href="{% url 'ai_search' %}" class="btn btn-outline btn-lg">Search with Photo</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section container">
+    <div class="grid-4">
+        <div class="stat-card glass-card text-center">
+            <h3 class="stat-number">{{ total_cases }}</h3>
+            <p class="stat-label">Active Cases</p>
+        </div>
+        <div class="stat-card glass-card text-center">
+            <h3 class="stat-number">{{ solved_cases }}</h3>
+            <p class="stat-label">Solved Cases</p>
+        </div>
+        <div class="stat-card glass-card text-center">
+            <h3 class="stat-number">{{ total_detectives }}</h3>
+            <p class="stat-label">Detectives</p>
+        </div>
+        <div class="stat-card glass-card text-center">
+            <h3 class="stat-number">{{ recent_sightings }}</h3>
+            <p class="stat-label">Recent Sightings</p>
+        </div>
+    </div>
+</section>
+
+<!-- Live Map Section -->
+<section class="map-section container">
+    <div class="section-header">
+        <h2>Live Case Map</h2>
+        <p>Real-time locations of reported lost items.</p>
+    </div>
+    <div class="glass-card map-container-wrapper">
+        <div id="home-map" class="interactive-map"></div>
+    </div>
+</section>
+
+<!-- Recent Cases -->
+<section class="recent-cases container">
+    <div class="section-header">
+        <h2>Recent Reports</h2>
+        <a href="{% url 'case_list' %}" class="btn btn-sm btn-outline">View All</a>
+    </div>
+    <div class="grid-3">
+        {% for case in recent_cases %}
+        <div class="case-card glass-card">
+            <div class="card-image-wrapper">
+                {% if case.images.first %}
+                    <img src="{{ case.images.first.image.url }}" alt="{{ case.title }}" class="card-img">
+                {% else %}
+                    <div class="card-img-placeholder">No Image</div>
+                {% endif %}
+                <span class="badge badge-{{ case.status|lower }}">{{ case.get_status_display }}</span>
+            </div>
+            <div class="card-body">
+                <h4 class="card-title">{{ case.title }}</h4>
+                <p class="card-meta"><i class="icon-location"></i> {{ case.location_name }}</p>
+                <p class="card-date">{{ case.created_at|date:"M d, Y" }}</p>
+                <a href="{% url 'case_detail' case.pk %}" class="btn btn-sm btn-primary w-100">View Details</a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full text-center">
+            <p>No recent cases found.</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Map
+        const map = L.map('home-map').setView([20, 0], 2);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Fetch Case Data
+        fetch('{% url "api_map_data" %}')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(caseItem => {
+                    if (caseItem.lat && caseItem.lon) {
+                        const marker = L.marker([caseItem.lat, caseItem.lon]).addTo(map);
+                        let popupContent = `
+                            <div class="popup-content">
+                                <strong>${caseItem.title}</strong><br>
+                                <small>${caseItem.location_name}</small><br>
+                                <a href="/cases/${caseItem.id}/" class="btn-link">View Case</a>
+                            </div>
+                        `;
+                        if (caseItem.thumbnail) {
+                            popupContent = `<img src="${caseItem.thumbnail}" style="width:100px; height:auto; border-radius:4px; margin-bottom:5px;"><br>` + popupContent;
+                        }
+                        marker.bindPopup(popupContent);
+                    }
+                });
+            })
+            .catch(err => console.error('Error loading map data:', err));
+    });
+</script>
+{% endblock %}

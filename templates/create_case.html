@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Case - LOSTFOUND{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="section-header mb-4">
+        <h1>Report Lost or Found Item</h1>
+        <p>Provide detailed information to help locate the item.</p>
+    </div>
+
+    <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <!-- Form Section -->
+        <div class="form-section">
+            <div class="glass-card p-4">
+                {% if messages %}
+                <div class="messages mb-3">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="POST" enctype="multipart/form-data" id="case-form">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="title">Case Title *</label>
+                        <input type="text" id="title" name="title" class="form-control" placeholder="e.g., Lost Golden Retriever" required value="{{ form_data.title|default:'' }}">
+                    </div>
+
+                    <div class="grid-2" style="gap: 1.5rem;">
+                        <div class="form-group">
+                            <label for="category">Category *</label>
+                            <select id="category" name="category" class="form-control" required>
+                                <option value="">Select Category</option>
+                                <option value="pet" {% if form_data.category == 'pet' %}selected{% endif %}>Pet</option>
+                                <option value="electronics" {% if form_data.category == 'electronics' %}selected{% endif %}>Electronics</option>
+                                <option value="wallet" {% if form_data.category == 'wallet' %}selected{% endif %}>Wallet/ID</option>
+                                <option value="jewelry" {% if form_data.category == 'jewelry' %}selected{% endif %}>Jewelry</option>
+                                <option value="clothing" {% if form_data.category == 'clothing' %}selected{% endif %}>Clothing</option>
+                                <option value="vehicle" {% if form_data.category == 'vehicle' %}selected{% endif %}>Vehicle</option>
+                                <option value="other" {% if form_data.category == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="case_type">Type *</label>
+                            <select id="case_type" name="case_type" class="form-control" required>
+                                <option value="">Select Type</option>
+                                <option value="lost" {% if form_data.case_type == 'lost' %}selected{% endif %}>Lost</option>
+                                <option value="found" {% if form_data.case_type == 'found' %}selected{% endif %}>Found</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label for="description">Description *</label>
+                        <textarea id="description" name="description" class="form-control" rows="5" placeholder="Describe the item in detail: color, brand, distinguishing features, etc." required>{{ form_data.description|default:'' }}</textarea>
+                    </div>
+
+                    <div class="grid-2" style="gap: 1.5rem;">
+                        <div class="form-group">
+                            <label for="incident_date">Date of Incident *</label>
+                            <input type="date" id="incident_date" name="incident_date" class="form-control" required value="{{ form_data.incident_date|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="location_name">Location Name *</label>
+                            <input type="text" id="location_name" name="location_name" class="form-control" placeholder="e.g., Central Park, Main St." required value="{{ form_data.location_name|default:'' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label>Exact Location (Click on map) *</label>
+                        <div id="location-map" style="height: 250px; border-radius: 8px; margin-bottom: 10px;"></div>
+                        <div class="grid-2" style="gap: 1.5rem;">
+                            <div class="form-group">
+                                <label for="latitude">Latitude</label>
+                                <input type="text" id="latitude" name="latitude" class="form-control" readonly required value="{{ form_data.latitude|default:'' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="longitude">Longitude</label>
+                                <input type="text" id="longitude" name="longitude" class="form-control" readonly required value="{{ form_data.longitude|default:'' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="gap: 1.5rem;">
+                        <div class="form-group">
+                            <label for="contact_email">Contact Email *</label>
+                            <input type="email" id="contact_email" name="contact_email" class="form-control" required value="{{ form_data.contact_email|default:user.email }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="contact_phone">Contact Phone</label>
+                            <input type="tel" id="contact_phone" name="contact_phone" class="form-control" placeholder="+1 (555) 123-4567" value="{{ form_data.contact_phone|default:'' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label for="images">Upload Photos *</label>
+                        <div class="file-upload-zone glass-panel p-4 text-center" id="drop-zone">
+                            <input type="file" id="images" name="images" class="form-control" multiple accept="image/*" required style="display: none;">
+                            <label for="images" style="cursor: pointer; display: block; height: 100%;">
+                                <div class="upload-icon" style="font-size: 3rem; color: var(--primary);">📁</div>
+                                <p>Drag & drop images here or <strong>click to browse</strong></p>
+                                <small class="text-muted">Supports JPG, PNG, WEBP. Multiple files allowed.</small>
+                            </label>
+                        </div>
+                        <div id="preview-container" class="d-flex gap-2 flex-wrap mt-3"></div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="reward_offered" name="reward_offered" value="true" {% if form_data.reward_offered %}checked{% endif %}>
+                            <label for="reward_offered">Reward Offered</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="reward-amount-group" style="display: none;">
+                        <label for="reward_amount">Reward Amount</label>
+                        <input type="text" id="reward_amount" name="reward_amount" class="form-control" placeholder="$100" value="{{ form_data.reward_amount|default:'' }}">
+                    </div>
+
+                    <div class="form-group mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg w-100">Submit Case Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="info-section">
+            <div class="glass-card p-4 mb-4">
+                <h3>Tips for a Successful Report</h3>
+                <ul class="styled-list">
+                    <li><strong>Clear Photos:</strong> Upload multiple angles and close-ups of distinctive features.</li>
+                    <li><strong>Detailed Description:</strong> Include brand, model, color, size, and any unique identifiers.</li>
+                    <li><strong>Accurate Location:</strong> Pin the exact location where the item was lost or found.</li>
+                    <li><strong>Contact Info:</strong> Ensure your contact details are correct for follow-up.</li>
+                    <li><strong>Reward:</strong> Offering a reward can increase community engagement.</li>
+                </ul>
+            </div>
+
+            <div class="glass-card p-4">
+                <h3>What Happens Next?</h3>
+                <ol class="styled-list">
+                    <li>Your case is reviewed and published immediately.</li>
+                    <li>AI analyzes images for potential matches.</li>
+                    <li>Community members can report sightings.</li>
+                    <li>Detectives may be assigned for complex cases.</li>
+                    <li>You receive notifications for all updates.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Map Initialization
+        const map = L.map('location-map').setView([40.7128, -74.0060], 12);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        let marker = null;
+        const latInput = document.getElementById('latitude');
+        const lonInput = document.getElementById('longitude');
+
+        // Load existing coordinates if available
+        {% if form_data.latitude and form_data.longitude %}
+        const existingLat = {{ form_data.latitude }};
+        const existingLon = {{ form_data.longitude }};
+        map.setView([existingLat, existingLon], 15);
+        marker = L.marker([existingLat, existingLon]).addTo(map);
+        {% endif %}
+
+        map.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+            
+            latInput.value = lat.toFixed(6);
+            lonInput.value = lng.toFixed(6);
+        });
+
+        // Reward Toggle
+        const rewardCheckbox = document.getElementById('reward_offered');
+        const rewardAmountGroup = document.getElementById('reward-amount-group');
+        
+        rewardCheckbox.addEventListener('change', function() {
+            rewardAmountGroup.style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Initialize reward visibility
+        if (rewardCheckbox.checked) {
+            rewardAmountGroup.style.display = 'block';
+        }
+
+        // File Preview
+        const imageInput = document.getElementById('images');
+        const previewContainer = document.getElementById('preview-container');
+
+        imageInput.addEventListener('change', function(e) {
+            previewContainer.innerHTML = '';
+            const files = e.target.files;
+            
+            Array.from(files).forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.className = 'glass-card p-1';
+                        imgWrapper.innerHTML = `
+                            <img src="${event.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;">
+                        `;
+                        previewContainer.appendChild(imgWrapper);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        });
+
+        // Drag and Drop
+        const dropZone = document.getElementById('drop-zone');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            imageInput.files = files;
+            
+            // Trigger change event
+            const event = new Event('change');
+            imageInput.dispatchEvent(event);
+        }
+    });
+</script>
+{% endblock %}

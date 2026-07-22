@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign In - LOSTFOUND{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="auth-wrapper">
+        <div class="glass-card auth-card p-5">
+            <div class="text-center mb-4">
+                <h1 class="display-2">Welcome Back</h1>
+                <p class="text-muted">Sign in to your LOSTFOUND account.</p>
+            </div>
+
+            {% if messages %}
+            <div class="messages mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{% url 'login' %}">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="username">Username or Email</label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="Enter your username or email" required value="{{ form_data.username|default:'' }}">
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" required>
+                </div>
+
+                <div class="form-group mt-3 d-flex justify-content-between align-items-center">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="remember" name="remember" value="true" {% if form_data.remember %}checked{% endif %}>
+                        <label for="remember">Remember me</label>
+                    </div>
+                    <a href="#" class="text-link text-sm">Forgot Password?</a>
+                </div>
+
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg w-100">Sign In</button>
+                </div>
+            </form>
+
+            <div class="text-center mt-4">
+                <p class="text-muted">Don't have an account? <a href="{% url 'signup' %}" class="text-link">Create One</a></p>
+            </div>
+
+            <div class="divider my-4">
+                <span>or</span>
+            </div>
+
+            <div class="text-center">
+                <a href="{% url 'home' %}" class="btn btn-outline w-100">Continue as Guest</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
