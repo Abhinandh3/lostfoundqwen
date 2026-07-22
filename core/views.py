@@ -17,6 +17,22 @@ from .models import (
 from .ai_engine import extract_image_embedding, search_similar_images, get_model_status
 
 
+def home_view(request):
+    """Home page with stats and recent cases."""
+    recent_cases = Case.objects.filter(status__in=['OPEN', 'INVESTIGATING']).order_by('-created_at')[:6]
+    total_cases = Case.objects.count()
+    found_cases = Case.objects.filter(status='FOUND').count()
+    active_detectives = Profile.objects.filter(is_detective=True, detective_status='ACTIVE').count()
+    
+    context = {
+        'recent_cases': recent_cases,
+        'total_cases': total_cases,
+        'found_cases': found_cases,
+        'active_detectives': active_detectives,
+    }
+    return render(request, 'home.html', context)
+
+
 def validate_case_data(post_data):
     """Manual validation for case creation data."""
     errors = []
