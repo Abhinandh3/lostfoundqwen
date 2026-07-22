@@ -5,120 +5,74 @@
 
 {% block content %}
 <!-- Hero Section -->
-<section class="hero-section">
+<section style="padding: 4rem 0; text-align: center;">
     <div class="container">
-        <div class="hero-content glass-card">
-            <h1 class="display-1">Lost & Found Reimagined</h1>
-            <p class="lead">AI-powered image recognition to reunite lost items and pets with their owners.</p>
-            <div class="hero-actions">
-                <a href="{% url 'create_case' %}" class="btn btn-primary btn-lg">Report Lost Item</a>
-                <a href="{% url 'ai_search' %}" class="btn btn-outline btn-lg">Search with Photo</a>
+        <div class="glass-panel" style="max-width: 800px; margin: 0 auto;">
+            <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">Lost & Found Reimagined</h1>
+            <p class="lead" style="font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 2rem;">AI-powered image recognition to reunite lost items and pets with their owners.</p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="{% url 'case_create' %}" class="btn btn-primary btn-lg">Report Lost Item</a>
+                <a href="{% url 'ai_search' %}" class="btn btn-secondary btn-lg">Search with Photo</a>
             </div>
         </div>
     </div>
 </section>
 
 <!-- Stats Section -->
-<section class="stats-section container">
+<section class="container" style="margin-bottom: 3rem;">
     <div class="grid-4">
-        <div class="stat-card glass-card text-center">
-            <h3 class="stat-number">{{ total_cases }}</h3>
-            <p class="stat-label">Active Cases</p>
+        <div class="card text-center">
+            <h3 style="color: var(--accent-color); font-size: 2.5rem; margin-bottom: 0.5rem;">{{ total_cases }}</h3>
+            <p class="stat-label" style="color: var(--text-secondary);">Active Cases</p>
         </div>
-        <div class="stat-card glass-card text-center">
-            <h3 class="stat-number">{{ solved_cases }}</h3>
-            <p class="stat-label">Solved Cases</p>
+        <div class="card text-center">
+            <h3 style="color: var(--success-color); font-size: 2.5rem; margin-bottom: 0.5rem;">{{ found_cases }}</h3>
+            <p class="stat-label" style="color: var(--text-secondary);">Found Cases</p>
         </div>
-        <div class="stat-card glass-card text-center">
-            <h3 class="stat-number">{{ total_detectives }}</h3>
-            <p class="stat-label">Detectives</p>
+        <div class="card text-center">
+            <h3 style="color: var(--warning-color); font-size: 2.5rem; margin-bottom: 0.5rem;">{{ active_detectives }}</h3>
+            <p class="stat-label" style="color: var(--text-secondary);">Active Detectives</p>
         </div>
-        <div class="stat-card glass-card text-center">
-            <h3 class="stat-number">{{ recent_sightings }}</h3>
-            <p class="stat-label">Recent Sightings</p>
+        <div class="card text-center">
+            <h3 style="color: var(--text-primary); font-size: 2.5rem; margin-bottom: 0.5rem;">{{ recent_cases|length }}</h3>
+            <p class="stat-label" style="color: var(--text-secondary);">Recent Reports</p>
         </div>
-    </div>
-</section>
-
-<!-- Live Map Section -->
-<section class="map-section container">
-    <div class="section-header">
-        <h2>Live Case Map</h2>
-        <p>Real-time locations of reported lost items.</p>
-    </div>
-    <div class="glass-card map-container-wrapper">
-        <div id="home-map" class="interactive-map"></div>
     </div>
 </section>
 
 <!-- Recent Cases -->
-<section class="recent-cases container">
-    <div class="section-header">
+<section class="container" style="margin-bottom: 3rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
         <h2>Recent Reports</h2>
-        <a href="{% url 'case_list' %}" class="btn btn-sm btn-outline">View All</a>
+        <a href="{% url 'case_list' %}" class="btn btn-secondary">View All</a>
     </div>
     <div class="grid-3">
         {% for case in recent_cases %}
-        <div class="case-card glass-card">
-            <div class="card-image-wrapper">
+        <div class="card">
+            <div style="position: relative;">
                 {% if case.images.first %}
-                    <img src="{{ case.images.first.image.url }}" alt="{{ case.title }}" class="card-img">
+                    <img src="{{ case.images.first.image.url }}" alt="{{ case.title }}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">
                 {% else %}
-                    <div class="card-img-placeholder">No Image</div>
+                    <div style="width: 100%; height: 200px; background: var(--bg-color); display: flex; align-items: center; justify-content: center; border-radius: 8px 8px 0 0; color: var(--text-secondary);">No Image</div>
                 {% endif %}
-                <span class="badge badge-{{ case.status|lower }}">{{ case.get_status_display }}</span>
+                <span class="badge badge-{{ case.status|lower }}" style="position: absolute; top: 10px; right: 10px;">{{ case.get_status_display }}</span>
             </div>
-            <div class="card-body">
-                <h4 class="card-title">{{ case.title }}</h4>
-                <p class="card-meta"><i class="icon-location"></i> {{ case.location_name }}</p>
-                <p class="card-date">{{ case.created_at|date:"M d, Y" }}</p>
-                <a href="{% url 'case_detail' case.pk %}" class="btn btn-sm btn-primary w-100">View Details</a>
+            <div style="padding: 1.5rem;">
+                <h4 style="margin-bottom: 0.5rem;">{{ case.title }}</h4>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">
+                    <strong>Location:</strong> {{ case.location }}
+                </p>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                    {{ case.created_at|date:"M d, Y" }}
+                </p>
+                <a href="{% url 'case_detail' case.pk %}" class="btn btn-primary" style="width: 100%;">View Details</a>
             </div>
         </div>
         {% empty %}
-        <div class="col-span-full text-center">
-            <p>No recent cases found.</p>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+            <p style="color: var(--text-secondary);">No recent cases found. Be the first to report!</p>
         </div>
         {% endfor %}
     </div>
 </section>
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize Map
-        const map = L.map('home-map').setView([20, 0], 2);
-        
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(map);
-
-        // Fetch Case Data
-        fetch('{% url "api_map_data" %}')
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(caseItem => {
-                    if (caseItem.lat && caseItem.lon) {
-                        const marker = L.marker([caseItem.lat, caseItem.lon]).addTo(map);
-                        let popupContent = `
-                            <div class="popup-content">
-                                <strong>${caseItem.title}</strong><br>
-                                <small>${caseItem.location_name}</small><br>
-                                <a href="/cases/${caseItem.id}/" class="btn-link">View Case</a>
-                            </div>
-                        `;
-                        if (caseItem.thumbnail) {
-                            popupContent = `<img src="${caseItem.thumbnail}" style="width:100px; height:auto; border-radius:4px; margin-bottom:5px;"><br>` + popupContent;
-                        }
-                        marker.bindPopup(popupContent);
-                    }
-                });
-            })
-            .catch(err => console.error('Error loading map data:', err));
-    });
-</script>
 {% endblock %}

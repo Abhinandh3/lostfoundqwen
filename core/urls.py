@@ -6,6 +6,9 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
+    # Home URL (must be first for empty path)
+    path('', views.home_view, name='home'),
+    
     # Authentication URLs
     path('signup/', views_auth.signup_view, name='signup'),
     path('login/', views_auth.login_view, name='login'),
