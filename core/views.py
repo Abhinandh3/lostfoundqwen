@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.db import transaction
 from django.utils import timezone
+from django.conf import settings
 
 from .models import (
     Profile, Case, CaseImage, SightingReport, DetectiveRequest,
@@ -62,15 +63,6 @@ def validate_case_data(post_data):
         errors.append("Location is required.")
     cleaned_data['location'] = location
     
-    lat = post_data.get('latitude', '')
-    lng = post_data.get('longitude', '')
-    
-    try:
-        cleaned_data['latitude'] = float(lat) if lat else None
-        cleaned_data['longitude'] = float(lng) if lng else None
-    except (ValueError, TypeError):
-        errors.append("Invalid coordinates format.")
-    
     date_str = post_data.get('date_occurred', '')
     if date_str:
         try:
@@ -98,7 +90,7 @@ def create_case(request):
         if errors:
             for error in errors:
                 messages.error(request, error)
-            return render(request, 'core/case_form.html', {
+            return render(request, 'create_case.html', {
                 'form_data': request.POST,
                 'errors': errors
             })
@@ -106,13 +98,11 @@ def create_case(request):
         try:
             with transaction.atomic():
                 case = Case.objects.create(
-                    user=request.user,
+                    owner=request.user,
                     title=cleaned_data['title'],
                     description=cleaned_data['description'],
                     case_type=cleaned_data['case_type'],
                     location=cleaned_data['location'],
-                    latitude=cleaned_data['latitude'],
-                    longitude=cleaned_data['longitude'],
                     date_occurred=cleaned_data['date_occurred'],
                     status=cleaned_data['status']
                 )
@@ -128,7 +118,7 @@ def create_case(request):
                         # Generate and save CLIP embedding
                         embedding = extract_image_embedding(case_image.image.path)
                         if embedding:
-                            case_image.clip_embedding = json.dumps(embedding)
+                            case_image.clip_embedding = embedding
                             case_image.save(update_fields=['clip_embedding'])
                             
                     except Exception as e:
@@ -140,17 +130,17 @@ def create_case(request):
                 
         except Exception as e:
             messages.error(request, f"Database error: {str(e)}")
-            return render(request, 'core/case_form.html', {
+            return render(request, 'create_case.html', {
                 'form_data': request.POST,
                 'errors': [str(e)]
             })
     
-    return render(request, 'core/case_form.html')
+    return render(request, 'create_case.html')
 
 
 def case_list(request):
     """Display list of all cases with filtering options."""
-    cases = Case.objects.select_related('user').prefetch_related('images').all()
+    cases = Case.objects.select_related('owner').prefetch_related('images').all()
     
     # Filtering
     case_type = request.GET.get('type')
@@ -178,24 +168,18 @@ def case_list(request):
             'q': search_query
         }
     }
-    return render(request, 'core/case_list.html', context)
+    return render(request, 'case_list.html', context)
 
 
 def case_detail(request, pk):
     """Display case details with images and sighting reports."""
     case = get_object_or_404(
-        Case.objects.select_related('user').prefetch_related('images', 'sighting_reports'),
+        Case.objects.select_related('owner').prefetch_related('images', 'sightings'),
         pk=pk
     )
     
-    # Check if user has already submitted a sighting report for this case
-    user_report = None
-    if request.user.is_authenticated:
-        user_report = SightingReport.objects.filter(case=case, reporter=request.user).first()
-    
     context = {
         'case': case,
-        'user_report': user_report,
         'is_assigned_detective': False
     }
     
@@ -204,11 +188,11 @@ def case_detail(request, pk):
             assignment = CaseAssignment.objects.filter(
                 case=case,
                 detective=request.user,
-                status='ACTIVE'
+                status='ACCEPTED'
             ).exists()
             context['is_assigned_detective'] = assignment
     
-    return render(request, 'core/case_detail.html', context)
+    return render(request, 'case_detail.html', context)
 
 
 @login_required
@@ -217,17 +201,21 @@ def submit_sighting_report(request, case_pk):
     case = get_object_or_404(Case, pk=case_pk)
     
     if request.method == 'POST':
+        reporter_name = request.POST.get('reporter_name', '').strip()
+        reporter_contact = request.POST.get('reporter_contact', '').strip()
         description = request.POST.get('description', '').strip()
         sighting_date = request.POST.get('sighting_date', '')
-        location = request.POST.get('location', '').strip()
+        sighting_location = request.POST.get('sighting_location', '').strip()
         
         errors = []
+        if not reporter_name:
+            errors.append("Name is required.")
+        if not reporter_contact:
+            errors.append("Contact info is required.")
         if not description:
             errors.append("Description is required.")
-        if not location:
-            errors.append("Location is required.")
-        
-        sighting_image = request.FILES.get('image')
+        if not sighting_location:
+            errors.append("Sighting location is required.")
         
         parsed_date = None
         if sighting_date:
@@ -242,21 +230,16 @@ def submit_sighting_report(request, case_pk):
             return redirect('case_detail', pk=case_pk)
         
         try:
-            report = SightingReport.objects.create(
+            SightingReport.objects.create(
                 case=case,
-                reporter=request.user,
+                reporter_name=reporter_name,
+                reporter_contact=reporter_contact,
                 description=description,
-                location=location,
-                sighting_date=parsed_date,
-                image=sighting_image if sighting_image else None
+                sighting_location=sighting_location,
+                sighting_date=parsed_date
             )
             messages.success(request, "Sighting report submitted successfully!")
             
-            # Update case status if needed
-            if case.status == 'OPEN':
-                case.status = 'UNDER_INVESTIGATION'
-                case.save(update_fields=['status'])
-                
         except Exception as e:
             messages.error(request, f"Error submitting report: {str(e)}")
         
@@ -276,26 +259,18 @@ def ai_search(request):
         
         if not query_image:
             messages.error(request, "No image uploaded.")
-            return render(request, 'core/ai_search.html', {
+            return render(request, 'ai_search.html', {
                 'results': [],
                 'model_status': model_status
             })
         
         try:
-            # Save temporary file path
-            temp_path = os.path.join(settings.MEDIA_ROOT, 'temp', query_image.name)
-            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
-            
-            with open(temp_path, 'wb+') as destination:
-                for chunk in query_image.chunks():
-                    destination.write(chunk)
-            
             # Extract embedding from query image
-            query_embedding = extract_image_embedding(temp_path)
+            query_embedding = extract_image_embedding(query_image.file)
             
             if not query_embedding:
                 messages.error(request, "Failed to extract image embedding.")
-                return render(request, 'core/ai_search.html', {
+                return render(request, 'ai_search.html', {
                     'results': [],
                     'model_status': model_status
                 })
@@ -312,18 +287,12 @@ def ai_search(request):
                         'similarity': round(img_data['similarity'] * 100, 2),
                         'case': case_image.case
                     })
-            
-            # Clean up temp file
-            try:
-                os.remove(temp_path)
-            except:
-                pass
-                
+                    
         except Exception as e:
             messages.error(request, f"Search error: {str(e)}")
             results = []
     
-    return render(request, 'core/ai_search.html', {
+    return render(request, 'ai_search.html', {
         'results': results,
         'model_status': model_status
     })
@@ -336,7 +305,7 @@ def request_detective(request, case_pk):
     """Allow users to request a detective for their case."""
     case = get_object_or_404(Case, pk=case_pk)
     
-    if request.user != case.user:
+    if request.user != case.owner:
         messages.error(request, "Only the case owner can request a detective.")
         return redirect('case_detail', pk=case_pk)
     
@@ -363,7 +332,7 @@ def request_detective(request, case_pk):
         
         return redirect('case_detail', pk=case_pk)
     
-    return render(request, 'core/detective_request.html', {'case': case})
+    return render(request, 'detective_request.html', {'case': case})
 
 
 @login_required
@@ -401,7 +370,7 @@ def detective_dashboard(request):
         }
     }
     
-    return render(request, 'core/detective_dashboard.html', context)
+    return render(request, 'detective_dashboard.html', context)
 
 
 @login_required
@@ -568,7 +537,7 @@ def admin_dashboard(request):
         'stats': stats
     }
     
-    return render(request, 'core/admin_dashboard.html', context)
+    return render(request, 'admin_dashboard.html', context)
 
 
 @login_required
@@ -631,7 +600,7 @@ def assign_detective_manually(request, case_pk):
         except Exception as e:
             messages.error(request, f"Error: {str(e)}")
     
-    return render(request, 'core/assign_detective.html', {
+    return render(request, 'assign_detective.html', {
         'case': case,
         'detectives': detectives
     })
