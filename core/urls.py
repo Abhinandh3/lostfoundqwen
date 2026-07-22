@@ -3,7 +3,7 @@ from django.contrib.auth.views import LogoutView
 from . import views_auth
 from . import views
 
-app_name = 'core'
+app_name = ''
 
 urlpatterns = [
     # Home URL (must be first for empty path)
