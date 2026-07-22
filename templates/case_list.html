@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Case List - LOSTFOUND{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="section-header mb-4">
+        <h1>Case List</h1>
+        <p>Browse all reported lost and found items.</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-card p-4 mb-4">
+        <form method="GET" action="{% url 'case_list' %}" class="filter-form">
+            <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" name="q" class="form-control" placeholder="Title or description..." value="{{ request.GET.q }}">
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="">All Statuses</option>
+                        <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="investigating" {% if request.GET.status == 'investigating' %}selected{% endif %}>Investigating</option>
+                        <option value="solved" {% if request.GET.status == 'solved' %}selected{% endif %}>Solved</option>
+                        <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Closed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" class="form-control">
+                        <option value="">All Categories</option>
+                        <option value="pet" {% if request.GET.category == 'pet' %}selected{% endif %}>Pet</option>
+                        <option value="electronics" {% if request.GET.category == 'electronics' %}selected{% endif %}>Electronics</option>
+                        <option value="wallet" {% if request.GET.category == 'wallet' %}selected{% endif %}>Wallet/ID</option>
+                        <option value="jewelry" {% if request.GET.category == 'jewelry' %}selected{% endif %}>Jewelry</option>
+                        <option value="clothing" {% if request.GET.category == 'clothing' %}selected{% endif %}>Clothing</option>
+                        <option value="vehicle" {% if request.GET.category == 'vehicle' %}selected{% endif %}>Vehicle</option>
+                        <option value="other" {% if request.GET.category == 'other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                <div class="form-group d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Grid -->
+    <div class="grid-3">
+        {% for case in cases %}
+        <div class="case-card glass-card">
+            <div class="card-image-wrapper">
+                {% if case.images.first %}
+                    <img src="{{ case.images.first.image.url }}" alt="{{ case.title }}" class="card-img">
+                {% else %}
+                    <div class="card-img-placeholder">No Image</div>
+                {% endif %}
+                <span class="badge badge-{{ case.status|lower }}">{{ case.get_status_display }}</span>
+            </div>
+            <div class="card-body">
+                <h4 class="card-title">{{ case.title }}</h4>
+                <p class="card-text truncate">{{ case.description|truncatewords:15 }}</p>
+                <div class="card-meta-row">
+                    <span><i class="icon-location"></i> {{ case.location_name|truncatechars:20 }}</span>
+                    <span><i class="icon-calendar"></i> {{ case.created_at|date:"M d" }}</span>
+                </div>
+                <div class="card-footer mt-3">
+                    <a href="{% url 'case_detail' case.pk %}" class="btn btn-sm btn-primary w-100">View Details</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full text-center py-5">
+            <div class="glass-card p-5">
+                <h3>No cases found</h3>
+                <p>Try adjusting your filters or report a new case.</p>
+                <a href="{% url 'create_case' %}" class="btn btn-primary">Report Lost Item</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if cases.has_other_pages %}
+    <div class="pagination mt-4">
+        <div class="glass-card p-3 d-flex justify-content-center gap-2 flex-wrap">
+            {% if cases.has_previous %}
+                <a href="?page={{ cases.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="btn btn-sm btn-outline">Previous</a>
+            {% endif %}
+            
+            <span class="px-3 py-1">Page {{ cases.number }} of {{ cases.paginator.num_pages }}</span>
+            
+            {% if cases.has_next %}
+                <a href="?page={{ cases.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="btn btn-sm btn-outline">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

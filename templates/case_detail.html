@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ case.title }} - LOSTFOUND{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav class="mb-4" aria-label="breadcrumb">
+        <a href="{% url 'home' %}" class="text-link">Home</a> / 
+        <a href="{% url 'case_list' %}" class="text-link">Cases</a> / 
+        <span>{{ case.title }}</span>
+    </nav>
+
+    <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <!-- Image Gallery -->
+        <div class="gallery-section">
+            <div class="glass-card p-3 mb-3">
+                {% if case.images.first %}
+                    <img src="{{ case.images.first.image.url }}" alt="{{ case.title }}" id="main-image" class="img-fluid w-100" style="border-radius: 8px; max-height: 400px; object-fit: cover;">
+                {% else %}
+                    <div class="card-img-placeholder" style="height: 400px;">No Image Available</div>
+                {% endif %}
+            </div>
+            {% if case.images.count > 1 %}
+            <div class="thumbnail-grid d-flex gap-2 flex-wrap">
+                {% for img in case.images.all %}
+                <button onclick="document.getElementById('main-image').src='{{ img.image.url }}'" class="glass-card p-1" style="border: none; cursor: pointer;">
+                    <img src="{{ img.image.url }}" alt="Thumbnail" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;">
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Case Details -->
+        <div class="details-section">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h1 class="display-2 mb-0">{{ case.title }}</h1>
+                    <span class="badge badge-{{ case.status|lower }}">{{ case.get_status_display }}</span>
+                </div>
+                
+                <div class="meta-list mb-4">
+                    <p><strong>Category:</strong> {{ case.get_category_display }}</p>
+                    <p><strong>Location:</strong> {{ case.location_name }}</p>
+                    <p><strong>Date Lost/Found:</strong> {{ case.incident_date|date:"F d, Y" }}</p>
+                    <p><strong>Reported:</strong> {{ case.created_at|date:"F d, Y H:i" }}</p>
+                    {% if case.reward_offered %}
+                    <p class="text-success"><strong>Reward:</strong> {{ case.reward_amount }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="description-box glass-panel p-3 mb-4">
+                    <h4>Description</h4>
+                    <p>{{ case.description|linebreaksbr }}</p>
+                </div>
+
+                <div class="contact-info glass-panel p-3 mb-4">
+                    <h4>Contact Information</h4>
+                    <p><strong>Reporter:</strong> {{ case.reporter.profile.name }}</p>
+                    <p><strong>Email:</strong> {{ case.contact_email }}</p>
+                    {% if case.contact_phone %}
+                    <p><strong>Phone:</strong> {{ case.contact_phone }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons d-flex flex-column gap-2">
+                    {% if user.is_authenticated and user != case.reporter %}
+                        {% if case.status == 'active' %}
+                        <a href="{% url 'request_detective' case.pk %}" class="btn btn-primary">Request Detective</a>
+                        {% endif %}
+                    {% endif %}
+                    
+                    <button onclick="document.getElementById('sighting-form').scrollIntoView({behavior: 'smooth'})" class="btn btn-outline">Report Sighting</button>
+                    
+                    {% if user == case.reporter or user.is_staff %}
+                    <a href="#" class="btn btn-sm btn-outline">Edit Case</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Section -->
+    {% if case.latitude and case.longitude %}
+    <section class="map-section mt-5">
+        <div class="section-header">
+            <h3>Incident Location</h3>
+        </div>
+        <div class="glass-card p-3">
+            <div id="case-map" style="height: 300px; border-radius: 8px;"></div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Investigation Updates -->
+    {% if assignments.exists %}
+    <section class="updates-section mt-5">
+        <div class="section-header">
+            <h3>Investigation Updates</h3>
+        </div>
+        <div class="timeline glass-card p-4">
+            {% for assignment in assignments %}
+                {% for update in assignment.updates.all %}
+                <div class="timeline-item mb-4 pb-4 {% if not forloop.last %}border-bottom{% endif %}">
+                    <div class="d-flex justify-content-between mb-2">
+                        <strong>{{ update.detective.profile.name }}</strong>
+                        <small class="text-muted">{{ update.created_at|date:"M d, Y H:i" }}</small>
+                    </div>
+                    <p>{{ update.notes|linebreaksbr }}</p>
+                    {% if update.evidence_images.exists %}
+                    <div class="evidence-grid d-flex gap-2 mt-2 flex-wrap">
+                        {% for evidence in update.evidence_images.all %}
+                        <img src="{{ evidence.image.url }}" alt="Evidence" style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px;">
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Sighting Report Form -->
+    <section id="sighting-form" class="mt-5">
+        <div class="section-header">
+            <h3>Report a Sighting</h3>
+            <p>Have you seen this item? Share information to help solve the case.</p>
+        </div>
+        
+        <div class="glass-card p-4">
+            {% if messages %}
+            <div class="messages mb-3">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="case_id" value="{{ case.pk }}">
+                
+                <div class="grid-2" style="gap: 1.5rem;">
+                    <div class="form-group">
+                        <label for="sighting_name">Your Name *</label>
+                        <input type="text" id="sighting_name" name="reporter_name" class="form-control" required value="{{ user.profile.name|default:'' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="sighting_contact">Contact Email *</label>
+                        <input type="email" id="sighting_contact" name="reporter_contact" class="form-control" required value="{{ user.email|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="sighting_location">Sighting Location *</label>
+                    <input type="text" id="sighting_location" name="location" class="form-control" placeholder="Where did you see it?" required>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="sighting_description">Description *</label>
+                    <textarea id="sighting_description" name="description" class="form-control" rows="4" placeholder="Describe what you saw, when, and any other details..." required></textarea>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="sighting_images">Upload Photos (Optional)</label>
+                    <input type="file" id="sighting_images" name="images" class="form-control" multiple accept="image/*">
+                    <small class="text-muted">You can select multiple images.</small>
+                </div>
+
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Submit Sighting Report</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if case.latitude and case.longitude %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const map = L.map('case-map').setView([{{ case.latitude }}, {{ case.longitude }}], 15);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        L.marker([{{ case.latitude }}, {{ case.longitude }}]).addTo(map)
+            .bindPopup('<strong>{{ case.title }}</strong><br>{{ case.location_name }}')
+            .openPopup();
+    });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Image Search - LOSTFOUND{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="section-header mb-4">
+        <h1>AI-Powered Image Search</h1>
+        <p>Upload a photo to find visually similar lost or found items using advanced computer vision.</p>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="glass-card p-5 mb-5">
+        <div class="upload-container text-center">
+            <div class="drop-zone glass-panel p-5" id="ai-drop-zone">
+                <input type="file" id="query-image" name="image" accept="image/*" style="display: none;">
+                <label for="query-image" style="cursor: pointer; display: block;">
+                    <div class="upload-icon" style="font-size: 4rem; margin-bottom: 1rem;">🔍</div>
+                    <h3>Drag & Drop Your Image Here</h3>
+                    <p class="text-muted">or click to browse files</p>
+                    <small>Supports JPG, PNG, WEBP • Max 10MB</small>
+                </label>
+            </div>
+            
+            <div id="preview-section" style="display: none;" class="mt-4">
+                <h4>Query Image</h4>
+                <img id="image-preview" src="" alt="Preview" style="max-width: 300px; max-height: 300px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <button id="search-btn" class="btn btn-primary btn-lg mt-3">
+                    <span class="spinner" id="search-spinner" style="display: none;"></span>
+                    <span id="search-text">Search Similar Cases</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" style="display: none;">
+        <div class="section-header mb-4">
+            <h2>Search Results</h2>
+            <p>Top matches based on visual similarity</p>
+        </div>
+
+        <div class="grid-3" id="results-grid">
+            <!-- Results will be injected here -->
+        </div>
+
+        <div id="no-results" style="display: none;" class="glass-card p-5 text-center">
+            <h3>No Similar Cases Found</h3>
+            <p>Try uploading a different image or report a new case.</p>
+            <a href="{% url 'create_case' %}" class="btn btn-primary">Report Lost Item</a>
+        </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="error-section" style="display: none;" class="alert alert-error glass-card p-4 mt-4">
+        <h4>Search Error</h4>
+        <p id="error-message"></p>
+        <button onclick="document.getElementById('error-section').style.display='none'" class="btn btn-sm btn-outline">Dismiss</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropZone = document.getElementById('ai-drop-zone');
+        const fileInput = document.getElementById('query-image');
+        const previewSection = document.getElementById('preview-section');
+        const imagePreview = document.getElementById('image-preview');
+        const searchBtn = document.getElementById('search-btn');
+        const searchSpinner = document.getElementById('search-spinner');
+        const searchText = document.getElementById('search-text');
+        const resultsSection = document.getElementById('results-section');
+        const resultsGrid = document.getElementById('results-grid');
+        const noResults = document.getElementById('no-results');
+        const errorSection = document.getElementById('error-section');
+        const errorMessage = document.getElementById('error-message');
+
+        let selectedFile = null;
+
+        // Drag and Drop Handlers
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('drag-over');
+                dropZone.style.borderColor = 'var(--primary)';
+                dropZone.style.background = 'rgba(var(--primary-rgb), 0.1)';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('drag-over');
+                dropZone.style.borderColor = '';
+                dropZone.style.background = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFiles(files[0]);
+            }
+        }
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleFiles(e.target.files[0]);
+            }
+        });
+
+        function handleFiles(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please select a valid image file.');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File size must be less than 10MB.');
+                return;
+            }
+
+            selectedFile = file;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imagePreview.src = event.target.result;
+                previewSection.style.display = 'block';
+                dropZone.style.display = 'none';
+                resultsSection.style.display = 'none';
+                errorSection.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Search Button Handler
+        searchBtn.addEventListener('click', function() {
+            if (!selectedFile) {
+                showError('Please select an image first.');
+                return;
+            }
+
+            // Show loading state
+            searchSpinner.style.display = 'inline-block';
+            searchText.textContent = 'Searching...';
+            searchBtn.disabled = true;
+            resultsSection.style.display = 'none';
+            errorSection.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            fetch('{% url "ai_search" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Search failed. Please try again.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayResults(data.results);
+            })
+            .catch(err => {
+                showError(err.message || 'An unexpected error occurred.');
+            })
+            .finally(() => {
+                searchSpinner.style.display = 'none';
+                searchText.textContent = 'Search Similar Cases';
+                searchBtn.disabled = false;
+            });
+        });
+
+        function displayResults(results) {
+            resultsSection.style.display = 'block';
+            
+            if (!results || results.length === 0) {
+                noResults.style.display = 'block';
+                resultsGrid.innerHTML = '';
+                return;
+            }
+
+            noResults.style.display = 'none';
+            resultsGrid.innerHTML = '';
+
+            results.forEach((item, index) => {
+                const similarityPercent = Math.round(item.similarity * 100);
+                const card = document.createElement('div');
+                card.className = 'case-card glass-card';
+                card.innerHTML = `
+                    <div class="card-image-wrapper" style="position: relative;">
+                        <img src="${item.image_url}" alt="${item.title}" class="card-img" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">
+                        <span class="badge badge-success" style="position: absolute; top: 10px; right: 10px; background: var(--success); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold;">
+                            ${similarityPercent}% Match
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <h4 class="card-title">${item.title}</h4>
+                        <p class="card-meta"><i class="icon-location"></i> ${item.location}</p>
+                        <p class="card-text truncate">${item.description}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="badge badge-${item.status}">${item.status_display}</span>
+                            <a href="/cases/${item.case_id}/" class="btn btn-sm btn-primary">View Case</a>
+                        </div>
+                    </div>
+                `;
+                resultsGrid.appendChild(card);
+            });
+        }
+
+        function showError(message) {
+            errorSection.style.display = 'block';
+            errorMessage.textContent = message;
+            resultsSection.style.display = 'none';
+        }
+
+        // CSRF Token Helper
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Reset on page load
+        function resetUI() {
+            dropZone.style.display = 'block';
+            previewSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            errorSection.style.display = 'none';
+            selectedFile = null;
+            fileInput.value = '';
+        }
+    });
+</script>
+{% endblock %}
