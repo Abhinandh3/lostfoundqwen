@@ -1,0 +1,7 @@
+django>=5.0
+torch
+transformers
+pillow
+numpy
+faiss-cpu
+opencv-python
