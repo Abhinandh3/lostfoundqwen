@@ -1,188 +1,61 @@
 <!DOCTYPE html>
-{% load static %}
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}LOSTFOUND - Find What Matters{% endblock %}</title>
+    <title>{% block title %}LOSTFOUND{% endblock %}</title>
+    {% load static %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     {% block extra_css %}{% endblock %}
-    <style>
-        /* Inline critical CSS for theme toggle persistence */
-        html {
-            visibility: hidden;
-            opacity: 0;
-        }
-        html.loaded {
-            visibility: visible;
-            opacity: 1;
-        }
-    </style>
 </head>
 <body>
-    <!-- Navigation -->
     <nav class="navbar">
-        <div class="nav-container">
-            <a href="{% url 'core:home' %}" class="logo">🔍 LOSTFOUND</a>
-            
+        <div class="container nav-content">
+            <a href="{% url 'home' %}" class="nav-brand">LOSTFOUND</a>
             <ul class="nav-links">
-                <li><a href="{% url 'core:home' %}">Home</a></li>
-                <li><a href="{% url 'core:case_list' %}">Cases</a></li>
-                <li><a href="{% url 'core:ai_search' %}">AI Search</a></li>
+                <li><a href="{% url 'home' %}">Home</a></li>
+                <li><a href="{% url 'case_list' %}">Cases</a></li>
+                <li><a href="{% url 'ai_search' %}">AI Search</a></li>
                 {% if user.is_authenticated %}
-                    {% if user.profile.user_type == 'detective' %}
-                        <li><a href="{% url 'core:detective_dashboard' %}">Detective Dashboard</a></li>
+                    {% if user.profile.is_detective and user.profile.detective_status == 'ACTIVE' %}
+                        <li><a href="{% url 'detective_dashboard' %}">Detective Dashboard</a></li>
                     {% endif %}
-                    {% if user.profile.user_type == 'admin' or user.is_superuser %}
-                        <li><a href="{% url 'core:admin_dashboard' %}">Admin</a></li>
+                    {% if user.is_staff %}
+                        <li><a href="{% url 'admin_dashboard' %}">Admin Panel</a></li>
                     {% endif %}
-                    <li><a href="{% url 'core:profile' %}">{{ user.username }}</a></li>
-                    <li><a href="{% url 'core:logout' %}">Logout</a></li>
+                    <li><a href="{% url 'case_create' %}">Post Case</a></li>
+                    <li><a href="{% url 'profile' %}">{{ user.username }}</a></li>
+                    <li><a href="{% url 'logout' %}">Logout</a></li>
                 {% else %}
-                    <li><a href="{% url 'core:login' %}">Login</a></li>
-                    <li><a href="{% url 'core:signup' %}">Sign Up</a></li>
+                    <li><a href="{% url 'login' %}">Login</a></li>
+                    <li><a href="{% url 'signup' %}">Sign Up</a></li>
                 {% endif %}
             </ul>
-            
-            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-                <span class="theme-icon">🌙</span>
-                <span class="theme-text">Dark</span>
-            </button>
         </div>
     </nav>
 
-    <!-- Messages -->
-    {% if messages %}
-    <div class="container" style="margin-top: 1rem;">
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+    <main class="container" style="margin-top: 2rem; flex: 1;">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
 
-    <!-- Main Content -->
-    <main class="container" style="margin-top: 2rem; min-height: calc(100vh - 300px);">
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-section">
-                <h4>LOSTFOUND</h4>
-                <p>Using AI-powered image recognition to reunite people with their lost belongings.</p>
-            </div>
-            <div class="footer-section">
-                <h4>Quick Links</h4>
-                <a href="{% url 'core:home' %}">Home</a>
-                <a href="{% url 'core:case_list' %}">Browse Cases</a>
-                <a href="{% url 'core:ai_search' %}">AI Search</a>
-            </div>
-            <div class="footer-section">
-                <h4>Account</h4>
-                {% if user.is_authenticated %}
-                    <a href="{% url 'core:profile' %}">My Profile</a>
-                    <a href="{% url 'core:logout' %}">Logout</a>
-                {% else %}
-                    <a href="{% url 'core:login' %}">Login</a>
-                    <a href="{% url 'core:signup' %}">Sign Up</a>
-                {% endif %}
-            </div>
-            <div class="footer-section">
-                <h4>Contact</h4>
-                <p>support@lostfound.app</p>
-                <p>&copy; {% now "Y" %} LOSTFOUND</p>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>Built with Django & AI • No Bootstrap • Pure Glassmorphism</p>
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 LOSTFOUND. All rights reserved.</p>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem;">Helping reunite lost items and pets with their owners.</p>
         </div>
     </footer>
 
-    <!-- Theme Toggle Script -->
-    <script>
-        // Theme management
-        (function() {
-            const html = document.documentElement;
-            const themeToggle = document.getElementById('themeToggle');
-            const themeIcon = themeToggle.querySelector('.theme-icon');
-            const themeText = themeToggle.querySelector('.theme-text');
-            
-            // Check localStorage for saved theme
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            setTheme(savedTheme);
-            
-            // Show content after theme is set
-            html.classList.add('loaded');
-            
-            themeToggle.addEventListener('click', function() {
-                const currentTheme = html.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                setTheme(newTheme);
-                localStorage.setItem('theme', newTheme);
-            });
-            
-            function setTheme(theme) {
-                html.setAttribute('data-theme', theme);
-                if (theme === 'light') {
-                    themeIcon.textContent = '☀️';
-                    themeText.textContent = 'Light';
-                } else {
-                    themeIcon.textContent = '🌙';
-                    themeText.textContent = 'Dark';
-                }
-            }
-        })();
-        
-        // Image preview for file inputs
-        document.querySelectorAll('input[type="file"][multiple], input[type="file"]').forEach(function(input) {
-            input.addEventListener('change', function(e) {
-                const previewContainer = this.parentElement.querySelector('.image-preview');
-                if (!previewContainer) return;
-                
-                previewContainer.innerHTML = '';
-                const files = e.target.files;
-                
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    if (file.type.startsWith('image/')) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const img = document.createElement('img');
-                            img.src = e.target.result;
-                            previewContainer.appendChild(img);
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                }
-            });
-        });
-        
-        // Form validation feedback
-        document.querySelectorAll('form').forEach(function(form) {
-            form.addEventListener('submit', function(e) {
-                const requiredFields = form.querySelectorAll('[required]');
-                let isValid = true;
-                
-                requiredFields.forEach(function(field) {
-                    if (!field.value.trim()) {
-                        isValid = false;
-                        field.style.borderColor = 'var(--danger)';
-                    } else {
-                        field.style.borderColor = 'var(--glass-border)';
-                    }
-                });
-                
-                if (!isValid) {
-                    e.preventDefault();
-                    alert('Please fill in all required fields.');
-                }
-            });
-        });
-    </script>
-    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
